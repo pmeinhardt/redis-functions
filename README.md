@@ -33,3 +33,11 @@ redis-cli FCALL hello 0
 redis-cli FCALL hello 0 Redis
 # "Hello, Redis!"
 ```
+
+## Background
+
+Redis supports persisted and replicated custom [functions](https://redis.io/docs/manual/programmability/functions-intro/) in versions 7.0 and newer. Functions are useful for maintaining a consistent view onto your data through a logical schema. They are (at present) written in [Lua](https://www.lua.org/), using Redis’ [Lua API](https://redis.io/docs/manual/programmability/lua-api/).
+
+If you are tied to an older version of Redis, you might still be able to re-use code from these modules via Redis [scripting](https://redis.io/docs/manual/programmability/eval-intro/).
+
+If you need low-level access or more fine-grained control, take a look at the Redis [Modules API](https://redis.io/docs/reference/modules/).

@@ -10,11 +10,21 @@ test.unload = function (name)
   assert(os.execute("redis-cli FUNCTION DELETE '" .. name .. "' > /dev/null"))
 end
 
+test.invoke = function (...)
+  -- note: we're not quoting arguments or escaping whitespace
+  local command = table.concat({"redis-cli", "-e", ...}, " ")
+
+  local process = io.popen(command .. " 2>&1")
+  local output = process:read("*all")
+  local ok, reason, code = process:close()
+
+  assert(ok, string.format("(%q, %q) %s", reason, code, output))
+
+  return output
+end
+
 test.fcall = function (fname, nkeys, ...)
-  local args = table.concat({fname, nkeys, ...}, " ")
-  local proc = io.popen("redis-cli --json FCALL " .. args)
-  local out = proc:read("*all")
-  assert(proc:close())
+  local out = test.invoke("--json", "FCALL", fname, nkeys, ...)
 
   if string.sub(out, 1, 6) == "error:" then
     error(string.sub(out, 7))

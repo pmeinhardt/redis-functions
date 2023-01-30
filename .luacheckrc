@@ -5,7 +5,7 @@
 std = "none"
 
 read_globals = {
-  "bitop",
+  "bit",
   "cjson",
   "cmsgpack",
   "math",

@@ -1,5 +1,7 @@
 # Redis Functions
 
+[![checks](https://github.com/pmeinhardt/redis-functions/actions/workflows/checks.yml/badge.svg)](https://github.com/pmeinhardt/redis-functions/actions/workflows/checks.yml)
+
 A collection of modules to extend [Redis](https://redis.io/) with additional functions.
 
 ## Usage

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+root="$(cd "$(dirname "$0")/.."; pwd)"
+
+"$root/script/run" busted --directory="$root" --config-file="$root/.busted" "$@"

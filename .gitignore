@@ -1,0 +1,5 @@
+# Redis snapshots
+/dump.rdb
+
+# LuaRock
+/.luarocks

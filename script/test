@@ -6,4 +6,4 @@ set -o pipefail
 
 root="$(cd "$(dirname "$0")/.."; pwd)"
 
-"$root/script/run" busted --directory="$root" --config-file="$root/.busted" "$@"
+"$root/script/run" busted --directory="$root/modules" --config-file="$root/.busted" "$@"

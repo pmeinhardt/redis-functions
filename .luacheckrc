@@ -20,5 +20,5 @@ ignore = {
   "212/keys",
 }
 
-files["*.test.lua"].std ="+lua54+busted"
-files["test/*.lua"].std ="+lua54+busted"
+files["modules/*.test.lua"].std ="+lua54+busted"
+files["modules/test/*.lua"].std ="+lua54+busted"

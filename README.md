@@ -27,7 +27,7 @@ redis-cli FCALL function-name number-of-keys [key ...] [arg ...]
 Example:
 
 ```sh
-cat hello.lua | redis-cli -x FUNCTION LOAD REPLACE
+cat modules/hello.lua | redis-cli -x FUNCTION LOAD REPLACE
 
 redis-cli FCALL hello 0
 # "Hello, World!"

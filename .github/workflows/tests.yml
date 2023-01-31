@@ -1,0 +1,62 @@
+name: tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7.0
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Install Redis
+        run: |
+          curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
+          sudo apt-get update
+          sudo apt-get install redis-tools
+
+      - name: Print Redis version
+        run: redis-cli --version
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Lua
+        uses: leafo/gh-actions-lua@v9
+
+      - name: Install LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
+
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v3
+        with:
+          key: ${{ runner.os }}-luarocks
+          path: .luarocks
+        id: cache-luarocks-restore
+
+      - name: Set up dependencies
+        run: script/setup
+
+      - name: Cache dependencies
+        uses: actions/cache/save@v3
+        with:
+          key: ${{ steps.cache-luarocks-restore.outputs.cache-primary-key }}
+          path: .luarocks
+        id: cache-luarocks-save
+
+      - name: Run tests
+        run: script/test

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+root=$(cd "$(dirname "$0")/.."; pwd)
+
+eval "$(luarocks path --tree "$root/.luarocks")"
+exec "$@"

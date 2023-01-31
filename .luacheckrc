@@ -19,3 +19,6 @@ ignore = {
   "212/args",
   "212/keys",
 }
+
+files["*.test.lua"].std ="+lua54+busted"
+files["test/*.lua"].std ="+lua54+busted"

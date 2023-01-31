@@ -15,6 +15,11 @@ test.fcall = function (fname, nkeys, ...)
   local proc = io.popen("redis-cli --json FCALL " .. args)
   local out = proc:read("*all")
   assert(proc:close())
+
+  if string.sub(out, 1, 6) == "error:" then
+    error(string.sub(out, 7))
+  end
+
   return json.decode(out)
 end
 

@@ -1,5 +1,18 @@
 #!lua name=colors
 
+-- Make Redis understand colors
+--
+-- RGBA values
+--
+--   FCALL csetrgba 1 key [r=0 [g=0 [b=0 [a=255]]]]
+--   FCALL cgetrgba 1 key
+--
+-- RGB values
+--
+--   FCALL csetrgb 1 key [r=0 [g=0 [b=0]]]
+--   FCALL cgetrgb 1 key
+--
+
 local errors = {
   nargs = "ERR wrong number of arguments",
   nkeys = "ERR wrong number of keys",

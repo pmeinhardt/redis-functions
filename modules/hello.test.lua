@@ -14,7 +14,7 @@ describe("hello", function ()
     assert.are.equal("Hello, World!", fcall("hello", 0))
   end)
 
-  it("greets the given name", function ()
+  it("greets somebody else", function ()
     assert.are.equal("Hello, Redis!", fcall("hello", 0, "Redis"))
   end)
 end)

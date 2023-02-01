@@ -1,6 +1,7 @@
 return {
   default = {
     ROOT = {"."},
+    lazy = true,
     pattern = "%.test%.lua$",
     verbose = true,
   },

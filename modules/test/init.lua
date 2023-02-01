@@ -18,6 +18,10 @@ test.invoke = function (...)
   local output = process:read("*all")
   local ok, reason, code = process:close()
 
+  if string.sub(output, -1) == "\n" then
+    output = string.sub(output, 1, -2)
+  end
+
   assert(ok, string.format("(%q, %q) %s", reason, code, output))
 
   return output

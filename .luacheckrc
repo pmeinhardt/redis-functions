@@ -1,14 +1,14 @@
 -- Luacheck: https://luacheck.readthedocs.io/en/stable/
 
-std = "redis"
+std = "redis" -- stds.redis is defined below
 
 ignore = {
-  "212/args",
-  "212/keys",
+  "212/args", -- passed to registered Redis functions
+  "212/keys", -- passed to registered Redis functions
 }
 
-files["modules/*.test.lua"].std ="+lua51+busted"
-files["modules/test/*.lua"].std ="+lua51+busted"
+files["modules/*.test.lua"].std = "+lua51+busted"
+files["modules/test/*.lua"].std = "+lua51+busted"
 
 exclude_files = {".luarocks/"}
 

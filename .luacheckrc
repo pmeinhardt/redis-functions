@@ -13,6 +13,7 @@ read_globals = {
   "string",
   "struct",
   "table",
+  "type",
 }
 
 ignore = {

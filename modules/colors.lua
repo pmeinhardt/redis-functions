@@ -1,6 +1,6 @@
 #!lua name=colors
 
--- Make Redis understand colors
+-- Let Redis see colors
 --
 -- RGBA values
 --

@@ -3,11 +3,11 @@ local json = require "dkjson"
 local test = {}
 
 test.load = function (path)
-  assert(os.execute("cat '" .. path .. "' | redis-cli -x FUNCTION LOAD REPLACE > /dev/null"))
+  assert(os.execute("cat '" .. path .. "' | redis-cli -e -x FUNCTION LOAD REPLACE > /dev/null"))
 end
 
 test.unload = function (name)
-  assert(os.execute("redis-cli FUNCTION DELETE '" .. name .. "' > /dev/null"))
+  assert(os.execute("redis-cli -e FUNCTION DELETE '" .. name .. "' > /dev/null"))
 end
 
 test.invoke = function (...)

@@ -87,9 +87,20 @@ end
 --
 -- Support color manipulation: darken, lighten, adjust opacity, …, shift
 
-local prefix = "c"
+if redis then
+  local prefix = "c"
 
-redis.register_function(prefix .. "setrgba", setrgba)
-redis.register_function(prefix .. "getrgba", getrgba)
-redis.register_function(prefix .. "setrgb", setrgb)
-redis.register_function(prefix .. "getrgb", getrgb)
+  redis.register_function(prefix .. "setrgba", setrgba)
+  redis.register_function(prefix .. "getrgba", getrgba)
+  redis.register_function(prefix .. "setrgb", setrgb)
+  redis.register_function(prefix .. "getrgb", getrgb)
+end
+
+local exports = {
+  n2rgb = n2rgb,
+  rgb2n = rgb2n,
+  n2rgba = n2rgba,
+  rgba2n = rgba2n,
+}
+
+return exports

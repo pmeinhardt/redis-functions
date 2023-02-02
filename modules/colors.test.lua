@@ -17,6 +17,11 @@ describe("colors", function ()
     test.invoke("DEL", key)
   end)
 
+  it("stores color values as int", function ()
+    assert.are.equal("OK", fcall("csetrgba", 1, key, 255, 255, 255, 255))
+    assert.are.equal("int", test.invoke("OBJECT", "ENCODING", key))
+  end)
+
   it("sets/gets rgba colors", function ()
     assert.are.equal("OK", fcall("csetrgba", 1, key, 255, 12, 127, 255))
     assert.are.same({255, 12, 127, 255}, fcall("cgetrgba", 1, key))
@@ -28,7 +33,7 @@ describe("colors", function ()
   end)
 
   it("sets/gets rgb colors", function ()
-    assert.are.equal("OK", fcall("csetrgba", 1, key, 48, 24, 12))
+    assert.are.equal("OK", fcall("csetrgb", 1, key, 48, 24, 12))
     assert.are.same({48, 24, 12}, fcall("cgetrgb", 1, key))
   end)
 

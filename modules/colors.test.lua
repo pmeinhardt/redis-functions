@@ -2,7 +2,10 @@ local test = require "test"
 local fcall = test.fcall
 
 describe("colors", function ()
+  local key = "colors-key"
+
   setup(function ()
+    test.invoke("DEL", key)
     test.load("colors.lua")
   end)
 
@@ -10,7 +13,9 @@ describe("colors", function ()
     test.unload("colors")
   end)
 
-  local key = "colors-key"
+  after_each(function ()
+    test.invoke("DEL", key)
+  end)
 
   it("sets/gets rgba colors", function ()
     assert.are.equal("OK", fcall("csetrgba", 1, key, 255, 12, 127, 255))

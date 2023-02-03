@@ -64,8 +64,7 @@
 --   The limits for score values with full time resolution are:
 --
 --   minimum = params.score.min
---   maximum = minimum +
---             math.floor(2^(54 - params.time.nbits) / 10^params.score.scale)
+--   maximum = minimum + 2^(54 - params.time.nbits)
 --
 --   for the default parameters (min=0):
 --
@@ -92,7 +91,7 @@
 --   resolution for those entries at the bottom of the ranking below the
 --   minimum value, but gaining room at the top end.
 --
---   If you know your scores are always mutliples of 10, 100, … or some other
+--   If you know your scores are always multiples of 10, 100, … or some other
 --   factor, you can divide them by this factor before passing them in and
 --   multiply any retrieved values to get back your original score.
 --

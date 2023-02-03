@@ -5,7 +5,7 @@
 -- Members with equal scores are ordered by the time of when the score was last
 -- updated, with members who achieved the score earlier being listed first.
 --
--- Scores are assumed to be integer values.
+-- Scores are assumed to be integer values (and are rounded if they are not).
 --
 -- Functions
 --
@@ -37,10 +37,10 @@
 --
 --   Time values:
 --
---   minimum = params.time.min
---   maximum = minimum + (2^params.time.nbits - 1) / 10^params.time.scale
+--   minimum = params.tmin
+--   maximum = minimum + (2^params.tbits - 1) / 10^params.tscale
 --
---   for the default parameters (with nbits=32, scale=0):
+--   for the default parameters (with tbits=32, tscale=0):
 --
 --   minimum = 1672531200 = 2023-01-01 00:00:00 UTC (as configured)
 --   maximum = 5967498495 = 2159-02-07 06:28:15 UTC
@@ -51,9 +51,9 @@
 --   values, represented as IEEE 754 floating point numbers on all their
 --   supported architectures.
 --
---   With this, integer values up to 2^53 (and down to -2^53) can be
---   represented accurately. Between 2^53 and 2^54, everything is multiplied by
---   2, so the representable numbers are the even ones.
+--   With this, integer values up to 2^53 and down to -2^53 can be represented
+--   accurately. Between 2^53 and 2^54, everything is multiplied by 2, so the
+--   representable numbers are the even ones.
 --
 --   https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 --
@@ -61,35 +61,35 @@
 --   or greater than 2^53 have their time resolution reduced by a factor of 2
 --   first, then 4 for even larger values… i.e. 2^53 == 2^53 + 1.
 --
---   The limits for score values with full time resolution are:
+--   The limits for score values with full time resolution thus are:
 --
---   minimum = params.score.min
---   maximum = minimum + 2^(54 - params.time.nbits)
+--   minimum = -2^(53 - params.tbits) = -2097152
+--   maximum = 2^(53 - params.tbits) - 1 = 2097151
 --
---   for the default parameters (min=0):
---
---   minimum = 0
---   maximum = 4194304
+--   Note: If you are working with score values from a different range, you can
+--   shift scores for storage. If you only allow non-negative scores (≥0) for
+--   instance, subtract 2097152 from the value you wish to store and add the
+--   same shift value to any retrieved scores.
 --
 -- Trade-offs
 --
 --   Resolution of the timestamps used for tie-breaking is seconds by default.
 --   You can choose to increase it up to microseconds resolution (see `TIME`),
---   setting params.time.scale and trading increased timestamp resolution for:
+--   setting params.tscale and trading increased timestamp resolution for:
 --
---   1. a reduced time range (if you keep params.time.nbits the same)
---   2. a reduced score value range (if you increase params.time.nbits)
+--   1. a reduced time range (if you keep params.tbits unchanged)
+--   2. a reduced score value range (if you increase params.tbits)
 --
 --   Conversely, you can reduce timestamp resolution for:
 --
---   1. a wider time range (keeping params.time.nbits unchanged)
---   2. a wider score range (reducing params.time.nbits)
+--   1. a wider time range (keeping params.tbits unchanged)
+--   2. a wider score range (reducing params.tbits)
 --
 --   You can shift the range of scores in which tie-breaking works with full
---   time resolution by adjusting params.score.min. If this range is too narrow
---   for you, you may choose to increase the minimum value, sacrificing time
---   resolution for those entries at the bottom of the ranking below the
---   minimum value, but gaining room at the top end.
+--   time resolution (see "Limits" section above). If this range is too narrow
+--   for you, you may choose to increase the shift value, mapping low scores to
+--   values below -2^53. You will lose time resolution for those entries at the
+--   bottom of the ranking, but gain room at the (more critical?) top end.
 --
 --   If you know your scores are always multiples of 10, 100, … or some other
 --   factor, you can divide them by this factor before passing them in and
@@ -102,14 +102,9 @@ local errors = {
 }
 
 local defaults = {
-  time = {
-    nbits = 32, -- number of bits to use for time information
-    scale = 0, -- decimal digits in the fractional part, 0=1s, 1=0.1s, 2=0.01s…
-    min = 1672531200, -- min. expected unix time: 2023-01-01 00:00:00 UTC
-  },
-  score = {
-    min = 0, -- min. expected score
-  },
+  tbits = 32, -- number of bits to use for time information
+  tscale = 0, -- decimal digits in the fractional time part, 0=1s, 1=0.1s…
+  tmin = 1672531200, -- min. expected unix time: 2023-01-01 00:00:00 UTC
 }
 
 local maxsafe = 2^53
@@ -122,21 +117,27 @@ local function clamp (value, min, max)
   return math.min(math.max(value, min), max)
 end
 
+local function log (value, base)
+  return math.log(value) / math.log(base)
+end
+
+local function log2 (value)
+  return log(value, 2)
+end
+
 local function init (params)
   local o = {}
-  local tbits = params.time.nbits
+  local tbits = params.tbits
 
   o.tbits = tbits
   o.step = 2^tbits
 
-  o.anchor = o.step / 2 - maxsafe
-
-  o.tinc = 10^(6 - params.time.scale)
-  o.tmin = params.time.min * 1000000
+  o.tinc = 10^(6 - params.tscale)
+  o.tmin = params.tmin * 1000000
   o.tmax = o.tmin + (2^tbits - 1) * o.tinc
 
-  o.smin = params.score.min
-  o.smax = o.smin + 2^(53 + 1 - tbits) - 2
+  o.smin = -2^(53 - tbits)
+  o.smax = 2^(53 - tbits) - 1
 
   return o
 end
@@ -151,15 +152,26 @@ function Codec:new (params)
 end
 
 function Codec:encode (score, timestamp)
-  local left = round((score - self.smin)) * self.step
-  local time = clamp(round((timestamp - self.tmin) / self.tinc), 0, self.step - 1)
-  local right = self.step / 2 - 1 - time
-  return self.anchor + left + right
+  local left = round(score) * self.step
+  local right = self.step - 1 - round((timestamp - self.tmin) / self.tinc)
+
+  local value = left + clamp(right, 0, self.step - 1)
+  local abs = math.abs(value)
+
+  if abs >= maxsafe then
+    local delta = score - self:decode(value)
+
+    if delta ~= 0 then
+      local nudge = delta * 2^math.floor(log2(abs) - 52)
+      value = value + nudge
+    end
+  end
+
+  return value
 end
 
 function Codec:decode (value)
-  -- We never use the stored timestamp, so we don't bother extracting it
-  return (round((value - self.step / 2) / self.step) + 2^(53 - self.tbits)) + self.smin
+  return math.floor(value / self.step)
 end
 
 local function incrby (codec, keys, args)

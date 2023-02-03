@@ -122,6 +122,14 @@ local function clamp (value, min, max)
   return math.min(math.max(value, min), max)
 end
 
+local function log (value, base)
+  return math.log(value) / math.log(base)
+end
+
+local function log2 (value)
+  return log(value, 2)
+end
+
 local function init (params)
   local o = {}
   local tbits = params.time.nbits
@@ -154,7 +162,22 @@ function Codec:encode (score, timestamp)
   local left = round((score - self.smin)) * self.step
   local time = clamp(round((timestamp - self.tmin) / self.tinc), 0, self.step - 1)
   local right = self.step / 2 - 1 - time
-  return self.anchor + left + right
+
+  local value = self.anchor + left + right
+
+  if value >= maxsafe then
+    local inc = 2^math.max(0, (math.floor(log2(value)) - 52))
+    while self:decode(value) < score do
+      value = value + inc
+    end
+  elseif value <= -maxsafe then
+    local inc = 2^math.max(0, (math.floor(log2(math.abs(value))) - 52))
+    while self:decode(value) > score do
+      value = value - inc
+    end
+  end
+
+  return value
 end
 
 function Codec:decode (value)

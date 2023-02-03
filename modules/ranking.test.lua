@@ -83,11 +83,12 @@ describe("ranking codec", function ()
       local tinc = c.tinc
 
       it("encodes so higher scores produce higher values", function ()
-        assert.is_true(encode(1, now) > encode(0, now))
+        local inc = 2^math.max(0, math.floor(math.log(smin) / math.log(2) - 52))
+        assert.is_true(encode(smin + inc, now) > encode(smin, now))
       end)
 
       it("encodes so higher timestamps produce lower values", function ()
-        assert.are.equal(encode(0, now + tinc), encode(0, now) - 1)
+        assert.are.equal(encode(smin, now + tinc), encode(smin, now) - 1)
       end)
 
       it("encodes and decodes simple values", function ()
@@ -126,6 +127,14 @@ describe("ranking codec", function ()
 
       it("encodes and decodes values near the top edge", function ()
         for _, v in ipairs({smax - 1, smax}) do
+          assert.are.equal(v, decode(encode(v, tmin)))
+          assert.are.equal(v, decode(encode(v, now)))
+          assert.are.equal(v, decode(encode(v, tmax)))
+        end
+      end)
+
+      it("encodes and decodes values beyond the edges", function ()
+        for _, v in ipairs({smin - 1, smin - 2, smax + 1, smax + 2}) do
           assert.are.equal(v, decode(encode(v, tmin)))
           assert.are.equal(v, decode(encode(v, now)))
           assert.are.equal(v, decode(encode(v, tmax)))

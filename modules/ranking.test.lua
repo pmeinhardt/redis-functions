@@ -32,7 +32,7 @@ describe("ranking", function ()
     assert.are.equal(1001, fcall("rkscore", 1, key, member))
   end)
 
-  it("ranks members", function ()
+  it("ranks members based on score", function ()
     assert.are.equal(4, fcall("rkincrby", 1, key, 4, "a"))
     assert.are.equal(3, fcall("rkincrby", 1, key, 3, "b"))
     assert.are.equal(2, fcall("rkincrby", 1, key, 2, "c"))
@@ -41,7 +41,7 @@ describe("ranking", function ()
     assert.are.equal(2, fcall("rkrank", 1, key, "c"))
   end)
 
-  it("lists members", function ()
+  it("lists members ordered by rank", function ()
     assert.are.equal(5, fcall("rkincrby", 1, key, 5, "a"))
     assert.are.equal(4, fcall("rkincrby", 1, key, 4, "b"))
     assert.are.equal(3, fcall("rkincrby", 1, key, 3, "c"))
@@ -54,101 +54,109 @@ local mod = require "ranking"
 describe("ranking codec", function ()
   local defaults = mod.defaults
 
+  local maxsafe = 2^53
   local now = os.time() * 1000000
 
   for _, tscale in ipairs({0, 3, 6}) do -- s, ms, μs
-    for _, min in ipairs({0, 2^53, -2^53 + 2}) do
-      local t = it
+    local t = it
 
-      local function it (description, ...)
-        return t(string.format("%s {time.scale = %g, score.min = %g}", description, tscale, min), ...)
+    local function it (description, ...)
+      return t(string.format("%s {tscale = %g}", description, tscale), ...)
+    end
+
+    local params = {
+      tbits = defaults.tbits,
+      tmin = defaults.tmin,
+      tscale = tscale,
+    }
+
+    local c = mod.new(params)
+
+    local decode = function (...) return c:decode(...) end
+    local encode = function (...) return c:encode(...) end
+
+    local smax, smin = c.smax, c.smin
+    local tmax, tmin, tinc = c.tmax, c.tmin, c.tinc
+    local tbits = c.tbits
+
+    local step = 2^tbits
+
+    it("encodes so higher scores produce higher values", function ()
+      assert.is_true(encode(smin + 1, now) > encode(smin, now))
+    end)
+
+    it("encodes so higher timestamps produce lower values", function ()
+      assert.are.equal(encode(smin, now + tinc), encode(smin, now) - 1)
+    end)
+
+    it("encodes expected values into the safe range", function ()
+      assert.are.equal(-maxsafe, encode(smin, tmax))
+      assert.are.equal(-maxsafe + 1, encode(smin, tmax - tinc))
+      assert.are.equal(-maxsafe + step - 1, encode(smin, tmin))
+      assert.are.equal(-maxsafe + step, encode(smin + 1, tmax))
+
+      assert.are.equal(maxsafe - step - 1, encode(smax - 1, tmin))
+      assert.are.equal(maxsafe - step, encode(smax, tmax))
+      assert.are.equal(maxsafe - step + 1, encode(smax, tmax - tinc))
+      assert.are.equal(maxsafe - 1, encode(smax, tmin))
+    end)
+
+    it("encodes and decodes simple values", function ()
+      for _, v in ipairs({-13, 0, 1, 17, 97, 131, 1019}) do
+        assert.are.equal(v, decode(encode(v, tmin)))
+        assert.are.equal(v, decode(encode(v, now)))
+        assert.are.equal(v, decode(encode(v, tmax)))
       end
+    end)
 
-      local params = {
-        score = { min = min },
-        time = {
-          nbits = defaults.time.nbits,
-          min = defaults.time.min,
-          scale = tscale,
-        },
+    it("encodes and decodes high values", function ()
+      local base = math.ceil(smin + (smax - smin) / 2)
+      for _, v in ipairs({base - 1, base, base + 1}) do
+        assert.are.equal(v, decode(encode(v, tmin)))
+        assert.are.equal(v, decode(encode(v, now)))
+        assert.are.equal(v, decode(encode(v, tmax)))
+      end
+    end)
+
+    it("encodes and decodes values near the bottom edge", function ()
+      for _, v in ipairs({smin + 1, smin}) do
+        assert.are.equal(v, decode(encode(v, tmin)))
+        assert.are.equal(v, decode(encode(v, now)))
+        assert.are.equal(v, decode(encode(v, tmax)))
+      end
+    end)
+
+    it("encodes and decodes values near the top edge", function ()
+      for _, v in ipairs({smax - 1, smax}) do
+        assert.are.equal(v, decode(encode(v, tmin)))
+        assert.are.equal(v, decode(encode(v, now)))
+        assert.are.equal(v, decode(encode(v, tmax)))
+      end
+    end)
+
+    it("encodes and decodes values beyond the edges", function ()
+      local vs = {
+        smin - 1, smin - 2, 2 * smin - 1, 4 * smin - 1,
+        smax + 1, smax + 2, 2 * smax + 1, 4 * smax + 1,
       }
 
-      local c = mod.new(params)
-
-      local decode = function (...) return c:decode(...) end
-      local encode = function (...) return c:encode(...) end
-
-      local smax, smin = c.smax, c.smin
-      local tmax, tmin = c.tmax, c.tmin
-      local tinc = c.tinc
-
-      it("encodes so higher scores produce higher values", function ()
-        assert.is_true(encode(1, now) > encode(0, now))
-      end)
-
-      it("encodes so higher timestamps produce lower values", function ()
-        assert.are.equal(encode(0, now + tinc), encode(0, now) - 1)
-      end)
-
-      it("encodes and decodes simple values", function ()
-        for _, o in ipairs({0, 1, 17, 91, 131, 2000000}) do
-          local v = smin + o
-          assert.are.equal(v, decode(encode(v, tmin)))
-          assert.are.equal(v, decode(encode(v, now)))
-          assert.are.equal(v, decode(encode(v, tmax)))
-        end
-      end)
-
-      it("encodes and decodes high values", function ()
-        local v = smin + ((smax - smin) / 2) - 1
-
+      for _, v in ipairs(vs) do
         assert.are.equal(v, decode(encode(v, tmin)))
         assert.are.equal(v, decode(encode(v, now)))
         assert.are.equal(v, decode(encode(v, tmax)))
+      end
+    end)
 
-        -- if assertions above succeed, but those below break,
-        -- we are only getting half the promised score range
+    it("encodes with full time resolution within the range", function ()
+      for _, v in ipairs({smin, smax}) do
+        assert.are.equal(encode(v, tmin + tinc), encode(v, tmin) - 1)
+        assert.are.equal(encode(v, tmax - tinc), encode(v, tmax) + 1)
+      end
+    end)
 
-        v = v + 1
-
-        assert.are.equal(v, decode(encode(v, tmin)))
-        assert.are.equal(v, decode(encode(v, now)))
-        assert.are.equal(v, decode(encode(v, tmax)))
-      end)
-
-      it("encodes and decodes values near the bottom edge", function ()
-        for _, v in ipairs({smin, smin + 1}) do
-          assert.are.equal(v, decode(encode(v, tmin)))
-          assert.are.equal(v, decode(encode(v, now)))
-          assert.are.equal(v, decode(encode(v, tmax)))
-        end
-      end)
-
-      it("encodes and decodes values near the top edge", function ()
-        for _, v in ipairs({smax - 1, smax}) do
-          assert.are.equal(v, decode(encode(v, tmin)))
-          assert.are.equal(v, decode(encode(v, now)))
-          assert.are.equal(v, decode(encode(v, tmax)))
-        end
-      end)
-
-      it("encodes with full time resolution within the boundaries", function ()
-        for _, v in ipairs({smin, smax}) do
-          assert.are.equal(encode(v, tmin + 2 * tinc), encode(v, tmin + tinc) - 1)
-          assert.are.equal(encode(v, tmax - 2 * tinc), encode(v, tmax - tinc) + 1)
-          assert.are.equal(encode(v, tmin + tinc), encode(v, tmin) - 1)
-          assert.are.equal(encode(v, tmax - tinc), encode(v, tmax) + 1)
-        end
-      end)
-
-      it("prevents out-of-range timestamp values from changing scores", function ()
-        assert.are.equal(smin, decode(encode(smin, tmin - 1)))
-        assert.are.equal(smin, decode(encode(smin, tmax + 1)))
-        assert.are.equal(smin, decode(encode(smin, tmin - tinc)))
-        assert.are.equal(smin, decode(encode(smin, tmax + tinc)))
-        assert.are.equal(smin, decode(encode(smin, tmin - 2 * tinc)))
-        assert.are.equal(smin, decode(encode(smin, tmax + 2 * tinc)))
-      end)
-    end
+    it("ensures out-of-range timestamps do not leak into scores", function ()
+      assert.are.equal(smin, decode(encode(smin, tmin - tinc)))
+      assert.are.equal(smin, decode(encode(smin, tmax + tinc)))
+    end)
   end
 end)

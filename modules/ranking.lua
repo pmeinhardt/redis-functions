@@ -33,6 +33,12 @@
 --
 --   See `encode` and `decode`.
 --
+--   Because the ranking is stored as a plain Redis sorted set, you can use the
+--   regular sorted set commands to do anything this module does not provide a
+--   separate function for - remove entries, get the total number of entries…
+--
+--   https://redis.io/commands/?group=sorted-set
+--
 -- Limits
 --
 --   Time values:

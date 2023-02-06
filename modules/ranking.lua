@@ -44,9 +44,9 @@
 --   Time values:
 --
 --   minimum = params.tmin
---   maximum = minimum + (2^params.tbits - 1) / 10^params.tscale
+--   maximum = minimum + (2^params.time.nbits - 1) / 10^params.time.scale
 --
---   for the default parameters (with tbits=32, tscale=0):
+--   for the default parameters (with time.nbits=32, time.scale=0):
 --
 --   minimum = 1672531200 = 2023-01-01 00:00:00 UTC (as configured)
 --   maximum = 5967498495 = 2159-02-07 06:28:15 UTC
@@ -69,19 +69,19 @@
 --
 --   The limits for score values with full time resolution thus are:
 --
---   minimum = -2^(53 - params.tbits) = -2097152
---   maximum = 2^(53 - params.tbits) - 1 = 2097151
+--   minimum = params.score.min
+--   maximum = 2^(54 - params.tbits) - 1
 --
---   Note: If you are working with score values from a different range, you can
---   shift scores for storage. If you only allow non-negative scores (≥0) for
---   instance, subtract 2097152 from the value you wish to store and add the
---   same shift value to any retrieved scores.
+--   for the default parameters (score.min=0):
+--
+--   minimum = 0
+--   maximum = 4194303
 --
 -- Trade-offs
 --
 --   Resolution of the timestamps used for tie-breaking is seconds by default.
 --   You can choose to increase it up to microseconds resolution (see `TIME`),
---   setting params.tscale and trading increased timestamp resolution for:
+--   setting params.time.scale and trading increased timestamp resolution for:
 --
 --   1. a reduced time range (if you keep params.tbits unchanged)
 --   2. a reduced score value range (if you increase params.tbits)
@@ -92,10 +92,10 @@
 --   2. a wider score range (reducing params.tbits)
 --
 --   You can shift the range of scores in which tie-breaking works with full
---   time resolution (see "Limits" section above). If this range is too narrow
---   for you, you may choose to increase the shift value, mapping low scores to
---   values below -2^53. You will lose time resolution for those entries at the
---   bottom of the ranking, but gain room at the (more critical?) top end.
+--   time resolution by adjusting params.score.min. By increasing the parameter
+--   value, low scores will be mapped to values below -2^53. You will lose time
+--   resolution for those entries at the bottom of the ranking, but gain room
+--   at the (more critical?) top end.
 --
 --   If you know your scores are always multiples of 10, 100, … or some other
 --   factor, you can divide them by this factor before passing them in and
@@ -108,9 +108,14 @@ local errors = {
 }
 
 local defaults = {
-  tbits = 32, -- number of bits to use for time information
-  tscale = 0, -- decimal digits in the fractional time part, 0=1s, 1=0.1s…
-  tmin = 1672531200, -- min. expected unix time: 2023-01-01 00:00:00 UTC
+  time = {
+    nbits = 32, -- number of bits to use for time information
+    scale = 0, -- decimal digits in the fractional time part, 0=1s, 1=0.1s…
+    min = 1672531200, -- min. expected unix time: 2023-01-01 00:00:00 UTC
+  },
+  score = {
+    min = 0, -- -2^53+2^(54-time.nbits)-1 ≤ min ≤ 2^53-2^(54-time.nbits)
+  },
 }
 
 local maxsafe = 2^53
@@ -133,17 +138,20 @@ end
 
 local function init (params)
   local o = {}
-  local tbits = params.tbits
+
+  local smin = params.score.min
+  local tbits = params.time.nbits
 
   o.tbits = tbits
+  o.shift = 2^(53 - tbits)
   o.step = 2^tbits
 
-  o.tinc = 10^(6 - params.tscale)
-  o.tmin = params.tmin * 1000000
+  o.tinc = 10^(6 - params.time.scale)
+  o.tmin = params.time.min * 1000000
   o.tmax = o.tmin + (2^tbits - 1) * o.tinc
 
-  o.smin = -2^(53 - tbits)
-  o.smax = 2^(53 - tbits) - 1
+  o.smin = smin
+  o.smax = smin + 2^(54 - tbits) - 1
 
   return o
 end
@@ -158,7 +166,7 @@ function Codec:new (params)
 end
 
 function Codec:encode (score, timestamp)
-  local left = round(score) * self.step
+  local left = round(score - self.smin - self.shift) * self.step
   local right = self.step - 1 - round((timestamp - self.tmin) / self.tinc)
 
   local value = left + clamp(right, 0, self.step - 1)
@@ -177,7 +185,7 @@ function Codec:encode (score, timestamp)
 end
 
 function Codec:decode (value)
-  return math.floor(value / self.step)
+  return math.floor(value / self.step) + self.shift + self.smin
 end
 
 local function incrby (codec, keys, args)

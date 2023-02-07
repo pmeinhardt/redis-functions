@@ -19,33 +19,33 @@ describe("ranking", function ()
 
   it("sets/gets ranking entries", function ()
     for i=0,6 do
-      local score, member = 10^i, "m:" .. i
-      assert.are.equal(score, fcall("rkincrby", 1, key, score, member))
-      assert.are.equal(score, fcall("rkscore", 1, key, member))
+      local score, member = math.floor(10^i), "m:" .. i
+      assert.are.equal(tostring(score), fcall("rkincrby", 1, key, score, member))
+      assert.are.equal(tostring(score), fcall("rkscore", 1, key, member))
     end
   end)
 
   it("updates ranking entries", function ()
     local member = "member-key"
-    assert.are.equal(1000, fcall("rkincrby", 1, key, 1000, member))
-    assert.are.equal(1001, fcall("rkincrby", 1, key, 1, member))
-    assert.are.equal(1001, fcall("rkscore", 1, key, member))
+    assert.are.equal("1000", fcall("rkincrby", 1, key, 1000, member))
+    assert.are.equal("1001", fcall("rkincrby", 1, key, 1, member))
+    assert.are.equal("1001", fcall("rkscore", 1, key, member))
   end)
 
   it("ranks members based on score", function ()
-    assert.are.equal(4, fcall("rkincrby", 1, key, 4, "a"))
-    assert.are.equal(3, fcall("rkincrby", 1, key, 3, "b"))
-    assert.are.equal(2, fcall("rkincrby", 1, key, 2, "c"))
+    assert.are.equal("4", fcall("rkincrby", 1, key, 4, "a"))
+    assert.are.equal("3", fcall("rkincrby", 1, key, 3, "b"))
+    assert.are.equal("2", fcall("rkincrby", 1, key, 2, "c"))
     assert.are.equal(0, fcall("rkrank", 1, key, "a"))
     assert.are.equal(1, fcall("rkrank", 1, key, "b"))
     assert.are.equal(2, fcall("rkrank", 1, key, "c"))
   end)
 
   it("lists members ordered by rank", function ()
-    assert.are.equal(5, fcall("rkincrby", 1, key, 5, "a"))
-    assert.are.equal(4, fcall("rkincrby", 1, key, 4, "b"))
-    assert.are.equal(3, fcall("rkincrby", 1, key, 3, "c"))
-    assert.are.same({"a", 5, "b", 4, "c", 3}, fcall("rkrange", 1, key, 0, -1))
+    assert.are.equal("5", fcall("rkincrby", 1, key, 5, "a"))
+    assert.are.equal("4", fcall("rkincrby", 1, key, 4, "b"))
+    assert.are.equal("3", fcall("rkincrby", 1, key, 3, "c"))
+    assert.are.same({"a", "5", "b", "4", "c", "3"}, fcall("rkrange", 1, key, 0, -1))
   end)
 end)
 

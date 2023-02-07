@@ -21,6 +21,7 @@ local lua51 = stds.lua51.read_globals
 stds.redis = {
   read_globals = {
     setmetatable = lua51.setmetatable,
+    tostring = lua51.tostring,
     type = lua51.type,
     unpack = lua51.unpack,
 

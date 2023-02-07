@@ -213,7 +213,7 @@ local function incrby (codec, keys, args)
 
   redis.call("ZADD", key, value, member)
 
-  return score
+  return tostring(score)
 end
 
 local function score (codec, keys, args)
@@ -221,7 +221,7 @@ local function score (codec, keys, args)
   if #args ~= 1 then return redis.error_reply(errors.nargs) end
   local value = redis.call("ZSCORE", keys[1], args[1])
   if value == nil then return nil end
-  return codec:decode(value)
+  return tostring(codec:decode(value))
 end
 
 local function range (codec, keys, args)
@@ -234,7 +234,7 @@ local function range (codec, keys, args)
   local res = {}
 
   for i=1,#rng,2 do
-    res[i], res[i + 1] = rng[i], codec:decode(rng[i + 1])
+    res[i], res[i + 1] = rng[i], tostring(codec:decode(rng[i + 1]))
   end
 
   return res

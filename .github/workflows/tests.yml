@@ -39,22 +39,14 @@ jobs:
       - name: Install LuaRocks
         uses: leafo/gh-actions-luarocks@v4
 
-      - name: Restore cached dependencies
-        uses: actions/cache/restore@v3
+      - name: Cache dependencies
+        uses: actions/cache@v3
         with:
           key: ${{ runner.os }}-luarocks
           path: .luarocks
-        id: cache-luarocks-restore
 
       - name: Set up dependencies
         run: script/setup
-
-      - name: Cache dependencies
-        uses: actions/cache/save@v3
-        with:
-          key: ${{ steps.cache-luarocks-restore.outputs.cache-primary-key }}
-          path: .luarocks
-        id: cache-luarocks-save
 
       - name: Run tests
         run: script/test
